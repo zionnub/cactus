@@ -3,7 +3,7 @@ import datapane as dp
 import plotly as pt
 import plotly.express as px
 import numpy as np
-from prophet import Prophet
+# from prophet import Prophet
 
 
 raw_data = pd.read_csv('raw_data.csv')
@@ -15,77 +15,7 @@ raw_data['Revenue USD']=pd.to_numeric(raw_data['Revenue USD'])
 raw_data['Job creation date']=pd.to_datetime(raw_data['Job creation date'])
 raw_data['Research Area'] = raw_data['Research Area'].fillna("Unknown")
 raw_data['weekday'] =raw_data['Job creation date'].dt.day_name()
-
-
-
-# check = raw_data[pd.isna(raw_data['Job creation date'])]
-filter=['Country','Fiscal year']
-
-# make function for count and revenue at yearly basis
-
-yearly_data = raw_data.groupby(filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-yearly_data['revenue_per_job'] = round(yearly_data['revenue']/yearly_data['job_count'],0)
-filter_2 = filter.copy()
-filter_2.remove('Fiscal year')
-print(filter_2)
-if(filter_2 == None):
-    yearly_data['count_YOY_change']=yearly_data.job_count.pct_change()
-    yearly_data['revenue_YOY_change']= yearly_data['revenue'].pct_change()
-    yearly_data['rpj_YOY_change']= yearly_data['revenue_per_job'].pct_change()
-else:
-    yearly_data['count_YOY_change']=yearly_data.groupby(filter_2).job_count.pct_change()
-    yearly_data['revenue_YOY_change']=yearly_data.groupby(filter_2).revenue.pct_change()
-    yearly_data['rpj_YOY_change']=yearly_data.groupby(filter_2).revenue_per_job.pct_change()
-
-yearly_data = yearly_data.fillna(0)
-# yearly_data['shift']= yearly_data['job_count'].shift(1)
-yearly_data.head(100)
-
-yearly_data['order_share'] = yearly_data['job_count'] / yearly_data.groupby('Fiscal year')['job_count'].transform('sum')
-
-#Monthly trends
-# Level 1
-
-m_l1_filter=['Fiscal year','Month']
-
-# make function for count and revenue at yearly basis
-
-monthly_data_l1 = raw_data.groupby(m_l1_filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-monthly_data_1l.head(20)
-# Level 2
-
-m_l2_filter=['Country','Fiscal year','Month']
-
-# make function for count and revenue at yearly basis
-
-monthly_data_l2 = raw_data.groupby(m_l2_filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-monthly_data_l2.head(20)
-
-# New vs repeat
-
-
-nr_l1_filter=['Fiscal year','Category']
-
-# make function for count and revenue at yearly basis
-
-nr_data_l1 = raw_data.groupby(nr_l1_filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-nr_data_l1['order_share'] = 100*nr_data_l1['job_count'] / nr_data_l1.groupby('Fiscal year')['job_count'].transform('sum')
-nr_data_l1['revenue_share'] = 100*nr_data_l1['revenue'] / nr_data_l1.groupby('Fiscal year')['revenue'].transform('sum')
-nr_data_l1.head(20)
-
-# New vs repeat
-
-
-nr_l2_filter=['Country','Fiscal year','Category']
-
-# make function for count and revenue at yearly basis
-
-nr_data_l2 = raw_data.groupby(nr_l2_filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-nr_data_l2['order_share'] = 100*nr_data_l2['job_count'] / nr_data_l2.groupby(['Fiscal year','Country'])['job_count'].transform('sum')
-nr_data_l2['revenue_share'] = 100*nr_data_l2['revenue'] / nr_data_l2.groupby(['Fiscal year','Country'])['revenue'].transform('sum')
-nr_data_l2.head(20)
-
-######################### Experiment End ####################
+raw_data['dayofweek']=  raw_data['Job creation date'].dt.dayofweek
 
 
 
@@ -119,6 +49,10 @@ css = """
                 display:inline;
                 font-size: 20px;
             }
+            div.a {
+              text-align: center;
+            }
+
           </style>
                   </head>
                   <body>
@@ -126,6 +60,84 @@ css = """
 
 
 header = dp.HTML(css+"<div id='block_container'><div id='bloc1'>CA<span>C</span>TUS</div><div id='bloc2'> Newsletter </div></div>")
+
+# bignumbers
+filter =['Fiscal year']
+base_df = raw_data.groupby(filter).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
+
+base_df['units_pct']=round(base_df['job_count'].pct_change()*100,2)
+base_df['revenue_pct']=round(base_df['revenue'].pct_change()*100,2)
+base_df=base_df.fillna(0)
+
+bg_nr_2018_units=   dp.BigNumber(
+         heading="2018",
+         value=str(round(base_df[base_df['Fiscal year']=='FY2018'].job_count[0]/1000))+"k",
+         change=base_df[base_df['Fiscal year']=='FY2018'].units_pct[0],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2018'].units_pct[0]>=0
+      )
+bg_nr_2019_units=   dp.BigNumber(
+         heading="2019",
+         value=str(round(base_df[base_df['Fiscal year']=='FY2019'].job_count[1]/1000))+"k",
+         change=base_df[base_df['Fiscal year']=='FY2019'].units_pct[1],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2019'].units_pct[1]>=0
+      )
+bg_nr_2020_units=   dp.BigNumber(
+         heading="2020",
+         value=str(round(base_df[base_df['Fiscal year']=='FY2020'].job_count[2]/1000))+"k",
+         change=base_df[base_df['Fiscal year']=='FY2020'].units_pct[2],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2020'].units_pct[2]>=0
+      )
+bg_nr_2021_units=   dp.BigNumber(
+         heading="2021",
+         value=str(round(base_df[base_df['Fiscal year']=='FY2021'].job_count[3]/1000))+"k",
+         change=base_df[base_df['Fiscal year']=='FY2021'].units_pct[3],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2021'].units_pct[3]>=0
+      )
+if(base_df[base_df['Fiscal year']=='FY2018'].revenue[0]<1000000):
+    rev_2018=str(round(base_df[base_df['Fiscal year']=='FY2018'].revenue[0]/1000))+"k"
+else:
+    rev_2018=str(round(base_df[base_df['Fiscal year']=='FY2018'].revenue[0]/1000000,1))+"M"
+
+bg_nr_2018_revenue=   dp.BigNumber(
+         heading="2018",
+         value=rev_2018,
+         change=base_df[base_df['Fiscal year']=='FY2018'].revenue_pct[0],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2018'].revenue_pct[0]>=0
+      )
+if(base_df[base_df['Fiscal year']=='FY2019'].revenue[1]<1000000):
+    rev_2019=str(round(base_df[base_df['Fiscal year']=='FY2019'].revenue[1]/1000))+"k"
+else:
+    rev_2019=str(round(base_df[base_df['Fiscal year']=='FY2019'].revenue[1]/1000000,1))+"M"
+bg_nr_2019_revenue=   dp.BigNumber(
+         heading="2019",
+         value=rev_2019,
+         change=base_df[base_df['Fiscal year']=='FY2019'].revenue_pct[1],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2019'].revenue_pct[1]>=0
+      )
+if(base_df[base_df['Fiscal year']=='FY2020'].revenue[2]<1000000):
+    rev_2020=str(round(base_df[base_df['Fiscal year']=='FY2020'].revenue[2]/1000))+"k"
+else:
+    rev_2020=str(round(base_df[base_df['Fiscal year']=='FY2020'].revenue[2]/1000000,1))+"M"
+bg_nr_2020_revenue=   dp.BigNumber(
+         heading="2020",
+         value=rev_2020,
+         change=base_df[base_df['Fiscal year']=='FY2020'].revenue_pct[2],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2020'].revenue_pct[2]>=0
+      )
+if(base_df[base_df['Fiscal year']=='FY2021'].revenue[3]<1000000):
+    rev_2021=str(round(base_df[base_df['Fiscal year']=='FY2021'].revenue[3]/1000))+"k"
+else:
+    rev_2021=str(round(base_df[base_df['Fiscal year']=='FY2021'].revenue[3]/1000000,1))+"M"
+bg_nr_2021_revenue=   dp.BigNumber(
+         heading="2021",
+         value=rev_2021,
+         change=base_df[base_df['Fiscal year']=='FY2021'].revenue_pct[3],
+         is_upward_change=base_df[base_df['Fiscal year']=='FY2021'].revenue_pct[3]>=0
+      )
+
+big_numbers = dp.Group(dp.Group(dp.HTML(css+"<div class='a'><h1 class='cent'><p class='cent'>Job Orders</p></h1><hr></div>"),dp.Group(bg_nr_2021_units,bg_nr_2020_units,bg_nr_2019_units,bg_nr_2018_units,columns=4)), \
+                    dp.Group(dp.HTML(css+"<div class='a'><h1 class='cent'><p class='cent'>Revenue</p></h1><hr></div>"),dp.Group(bg_nr_2021_revenue,bg_nr_2020_revenue,bg_nr_2019_revenue,bg_nr_2018_revenue,columns=4)),columns=2)
+
 
 # Summary function
 def summary(base_df,filter,selectable=""):
@@ -168,9 +180,10 @@ fig = px.line(monthly_data, x=monthly_data["fy_month"], y=monthly_data["jobs"], 
 fig_2 = px.line(monthly_data, x=monthly_data["fy_month"], y=monthly_data["revenue"], color=monthly_data['Country'], title="Country Wise Revenue")
 #pie plot
 monthly_data_pie = raw_data_modified.groupby(['Country','Fiscal year']).agg(jobs=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
-fig_pie = px.pie(monthly_data_pie, values=monthly_data["jobs"], names=monthly_data["Country"], title='Country job share in 2021')
-fig_pie_2 = px.pie(monthly_data_pie, values=monthly_data["revenue"], names=monthly_data["Country"], title='Country revenue share in 2021')
-fig_pie_3 = px.pie(monthly_data_pie, values=round(monthly_data["revenue"]/monthly_data["jobs"]), names=monthly_data["Country"], title='Country RPJ share in 2021')
+monthly_data_pie = monthly_data_pie[monthly_data_pie['Fiscal year']=='FY2021']
+fig_pie = px.pie(monthly_data_pie, values=monthly_data_pie["jobs"], names=monthly_data_pie["Country"], title='Country job share in 2021')
+fig_pie_2 = px.pie(monthly_data_pie, values=monthly_data_pie["revenue"], names=monthly_data_pie["Country"], title='Country revenue share in 2021')
+fig_pie_3 = px.pie(monthly_data_pie, values=round(monthly_data_pie["revenue"]/monthly_data_pie["jobs"]), names=monthly_data_pie["Country"], title='Country wise RPJ in 2021')
 fig_pie_3.update_traces(textinfo='value')
 
 
@@ -194,7 +207,17 @@ Document_type_line_plot = line_chart(['Document type','fy_month'],"Document type
 
 Research_Area_line_plot = line_chart(['Research Area','fy_month'],"Research Area")
 
-page=dp.Page(title="OverView",blocks=[header,table,country_line_plot,dp.Group(dp.Plot(fig_pie),dp.Plot(fig_pie_2),dp.Plot(fig_pie_3),columns=3),Service_line_plot,Document_type_line_plot,Research_Area_line_plot])
+# Daily trends
+daily_data= raw_data[raw_data['Job creation date'].notnull()]
+daily_data=  daily_data.groupby(['weekday','dayofweek']).agg(job_count=pd.NamedAgg(column="Job code", aggfunc="count"),revenue=pd.NamedAgg(column="Revenue USD", aggfunc="sum")).reset_index()
+daily_data = daily_data.sort_values(by='dayofweek')
+daily_bar = px.bar(daily_data, x='weekday', y='job_count')
+daily_bar.show()
+
+
+
+
+page=dp.Page(title="OverView",blocks=[header,big_numbers,table,country_line_plot,dp.Group(dp.Plot(fig_pie),dp.Plot(fig_pie_2),dp.Plot(fig_pie_3),columns=3),Service_line_plot,Document_type_line_plot,Research_Area_line_plot,dp.Plot(daily_bar)])
 
 #### Create Country Page ####
 date_range =pd.date_range(start="2018-01-01",end="2021-12-31")
